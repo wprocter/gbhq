@@ -1839,6 +1839,12 @@ function initCompass() {
 }
 
 function startPKE() {
+  // Initialise / resume AudioContext here, while we are still inside the
+  // synchronous user-gesture handler.  iOS Safari refuses to create or
+  // resume an AudioContext inside a Promise.then() callback, so we must
+  // do it now — before the async DeviceOrientation permission request.
+  getAudioCtx();
+
   // iOS 13+ needs permission on a gesture
   if (typeof DeviceOrientationEvent !== 'undefined' &&
       typeof DeviceOrientationEvent.requestPermission === 'function') {
