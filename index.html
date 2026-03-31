@@ -1,0 +1,1863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ghostbusters HQ</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:   #00ff88;
+      --dkgreen: #00cc66;
+      --amber:   #ffaa00;
+      --red:     #ff3355;
+      --bg:      #050d0a;
+      --panel:   #0a1a12;
+      --border:  #1a4a2a;
+      --text:    #b0ffd0;
+      --ghost:   #88ffee;
+    }
+
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Scanlines overlay ────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.15) 2px,
+        rgba(0,0,0,0.15) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── Header ───────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: var(--panel);
+      border-bottom: 2px solid var(--border);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .logo {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: clamp(18px, 3vw, 28px);
+      color: var(--green);
+      text-shadow: 0 0 20px var(--green), 0 0 40px var(--dkgreen);
+      letter-spacing: 3px;
+    }
+
+    .logo span { color: #fff; }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+    }
+
+    .status-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .status-dot.alert { background: var(--red); box-shadow: 0 0 8px var(--red); animation: fastpulse 0.4s ease-in-out infinite; }
+
+    #clock { color: var(--amber); letter-spacing: 2px; }
+
+    #ghost-count-badge {
+      background: var(--red);
+      color: #fff;
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 13px;
+      display: none;
+      box-shadow: 0 0 12px var(--red);
+    }
+
+    /* ── Mute toggle ─────────────────────────────────── */
+    .mute-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .mute-toggle input { display: none; }
+
+    .mute-track {
+      position: relative;
+      width: 38px;
+      height: 20px;
+      background: #1a3a2a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+
+    .mute-toggle input:checked + .mute-track {
+      background: #0a3a20;
+      border-color: var(--dkgreen);
+      box-shadow: 0 0 8px rgba(0,255,136,0.4);
+    }
+
+    .mute-thumb {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #3a6a4a;
+      transition: transform 0.2s, background 0.2s;
+    }
+
+    .mute-toggle input:checked + .mute-track .mute-thumb {
+      transform: translateX(18px);
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+    }
+
+    .mute-label { font-size: 14px; width: 18px; text-align: center; }
+
+    /* ── Main layout ──────────────────────────────────────────── */
+    main {
+      display: grid;
+      grid-template-columns: 1fr minmax(300px, 380px);
+      grid-template-rows: auto auto;
+      gap: 16px;
+      padding: 16px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* ── Panel card ───────────────────────────────────────────── */
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--green), transparent);
+      opacity: 0.6;
+    }
+
+    .panel-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--green);
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      opacity: 0.8;
+    }
+
+    /* ── Radar ────────────────────────────────────────────────── */
+    .radar-panel {
+      grid-row: 1 / 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #radar-wrap {
+      position: relative;
+      width: min(360px, 90vw);
+      height: min(360px, 90vw);
+      margin: 0 auto;
+    }
+
+    #radarCanvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: block;
+    }
+
+    /* ── Scan button ──────────────────────────────────────────── */
+    #scan-btn {
+      margin-top: 18px;
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 3px;
+      padding: 14px 40px;
+      background: transparent;
+      color: var(--green);
+      border: 2px solid var(--green);
+      border-radius: 6px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.2s;
+      box-shadow: 0 0 16px rgba(0,255,136,0.3), inset 0 0 16px rgba(0,255,136,0.05);
+      position: relative;
+      overflow: hidden;
+    }
+
+    #scan-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(0,255,136,0.15), transparent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    #scan-btn:hover::before { opacity: 1; }
+    #scan-btn:hover {
+      box-shadow: 0 0 30px rgba(0,255,136,0.6), inset 0 0 20px rgba(0,255,136,0.1);
+      transform: translateY(-1px);
+    }
+
+    #scan-btn:active { transform: translateY(1px); }
+
+    #scan-btn.scanning {
+      color: var(--amber);
+      border-color: var(--amber);
+      box-shadow: 0 0 30px rgba(255,170,0,0.6);
+      animation: scanpulse 0.5s ease-in-out infinite alternate;
+    }
+
+    #bell-btn {
+      margin-top: 12px;
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: clamp(16px, 3vw, 22px);
+      letter-spacing: 2px;
+      padding: 18px 40px;
+      background: linear-gradient(135deg, rgba(255,170,0,0.15), rgba(255,100,0,0.1));
+      color: var(--amber);
+      border: 3px solid var(--amber);
+      border-radius: 8px;
+      cursor: pointer;
+      text-transform: uppercase;
+      width: 100%;
+      transition: all 0.2s;
+      box-shadow: 0 0 24px rgba(255,170,0,0.4), inset 0 0 20px rgba(255,170,0,0.08);
+      position: relative;
+      overflow: hidden;
+    }
+
+    #bell-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,170,0,0.25), transparent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    #bell-btn:hover::before { opacity: 1; }
+    #bell-btn:hover {
+      box-shadow: 0 0 50px rgba(255,170,0,0.8), inset 0 0 30px rgba(255,170,0,0.15);
+      transform: translateY(-2px) scale(1.01);
+    }
+
+    #bell-btn:active { transform: translateY(1px) scale(0.99); }
+
+    #bell-btn.ringing {
+      animation: bellring 0.12s ease-in-out infinite alternate;
+      box-shadow: 0 0 60px rgba(255,170,0,1), inset 0 0 30px rgba(255,170,0,0.2);
+    }
+
+    @keyframes bellring {
+      from { transform: rotate(-4deg) scale(1.01); }
+      to   { transform: rotate(4deg)  scale(1.02); }
+    }
+
+    /* ── Alert banner ─────────────────────────────────────────── */
+    #alert-banner {
+      display: none;
+      margin-top: 14px;
+      width: 100%;
+      background: rgba(255,51,85,0.12);
+      border: 1px solid var(--red);
+      border-radius: 6px;
+      padding: 12px 16px;
+      text-align: center;
+      font-size: 13px;
+      line-height: 1.6;
+      animation: alertflash 0.6s ease-in-out infinite alternate;
+    }
+
+    #alert-banner .alert-room {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 16px;
+      color: var(--red);
+      font-weight: 700;
+      text-shadow: 0 0 12px var(--red);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    #alert-banner .alert-sub {
+      color: #ffaaaa;
+      font-size: 11px;
+      letter-spacing: 1px;
+    }
+
+    /* ── Right column ─────────────────────────────────────────── */
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── Ghost log ────────────────────────────────────────────── */
+    #ghost-log {
+      list-style: none;
+      max-height: 240px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    #ghost-log li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(26,74,42,0.5);
+      font-size: 12px;
+      animation: logslide 0.3s ease-out;
+    }
+
+    #ghost-log li:last-child { border-bottom: none; }
+
+    .log-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+
+    .log-room {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ghost);
+      text-shadow: 0 0 6px var(--ghost);
+    }
+
+    .log-time { color: #446644; font-size: 10px; margin-top: 2px; }
+
+    .log-empty {
+      color: #2a4a3a;
+      font-size: 12px;
+      padding: 20px 0;
+      text-align: center;
+    }
+
+    /* ── Room grid ────────────────────────────────────────────── */
+    .rooms-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .room-tile {
+      background: rgba(0,255,136,0.03);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      letter-spacing: 1px;
+      color: #5a9a6a;
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .room-tile.haunted {
+      border-color: rgba(255,51,85,0.6);
+      background: rgba(255,51,85,0.08);
+      color: #ffaaaa;
+      box-shadow: 0 0 12px rgba(255,51,85,0.2), inset 0 0 12px rgba(255,51,85,0.05);
+    }
+
+    .room-tile.haunted::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 8px,
+        rgba(255,51,85,0.04) 8px,
+        rgba(255,51,85,0.04) 9px
+      );
+    }
+
+    .room-count {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--red);
+      text-shadow: 0 0 10px var(--red);
+      min-width: 24px;
+      text-align: right;
+    }
+
+    .room-tile:not(.haunted) .room-count { color: #2a4a3a; text-shadow: none; }
+
+    /* ── Stats row ────────────────────────────────────────────── */
+    .stats-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .stat-box {
+      flex: 1;
+      background: rgba(0,255,136,0.04);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      font-size: 26px;
+      color: var(--green);
+      text-shadow: 0 0 12px var(--green);
+      line-height: 1;
+    }
+
+    .stat-label { font-size: 9px; letter-spacing: 2px; color: #3a6a4a; margin-top: 4px; text-transform: uppercase; }
+
+    /* ── Clear button ─────────────────────────────────────────── */
+    #clear-btn {
+      width: 100%;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px;
+      letter-spacing: 2px;
+      padding: 10px;
+      background: transparent;
+      color: #3a6a4a;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+
+    #clear-btn:hover { color: var(--red); border-color: var(--red); background: rgba(255,51,85,0.05); }
+
+    /* ── Bottom row: spans full width ─────────────────────────── */
+    .bottom-row {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .bottom-row .panel { flex: 1; min-width: 200px; }
+
+    /* ── Ticker ───────────────────────────────────────────────── */
+    .ticker-wrap {
+      overflow: hidden;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+      margin-top: 8px;
+    }
+
+    #ticker-text {
+      display: inline-block;
+      white-space: nowrap;
+      font-size: 11px;
+      color: #3a7a5a;
+      animation: ticker 30s linear infinite;
+      letter-spacing: 1px;
+    }
+
+    /* ── Ghost emoji floaters ─────────────────────────────────── */
+    .floater {
+      position: fixed;
+      font-size: 28px;
+      pointer-events: none;
+      z-index: 9000;
+      animation: floatup 2.5s ease-out forwards;
+    }
+
+    /* ── Animations ───────────────────────────────────────────── */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    @keyframes fastpulse {
+      0%   { opacity: 1; }
+      100% { opacity: 0.3; }
+    }
+
+    @keyframes scanpulse {
+      from { box-shadow: 0 0 20px rgba(255,170,0,0.4); }
+      to   { box-shadow: 0 0 40px rgba(255,170,0,0.9); }
+    }
+
+    @keyframes alertflash {
+      from { background: rgba(255,51,85,0.06); }
+      to   { background: rgba(255,51,85,0.18); }
+    }
+
+    @keyframes logslide {
+      from { opacity: 0; transform: translateX(20px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes ticker {
+      from { transform: translateX(100vw); }
+      to   { transform: translateX(-100%); }
+    }
+
+    @keyframes floatup {
+      0%   { opacity: 1; transform: translateY(0) scale(1) rotate(-10deg); }
+      50%  { opacity: 0.8; transform: translateY(-80px) scale(1.3) rotate(10deg); }
+      100% { opacity: 0; transform: translateY(-180px) scale(0.6) rotate(-5deg); }
+    }
+
+    /* ── PKE Meter (mobile only) ────────────────────────────────── */
+    #pke-panel { display: none; }
+
+    #pke-scanner {
+      width: 100%;
+      max-width: 340px;
+      height: 70px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #010d05;
+      display: block;
+    }
+
+    .pke-arms-wrap {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 24px;
+      margin: 14px 0 10px;
+    }
+
+    .pke-arm {
+      width: 10px;
+      border-radius: 4px 4px 0 0;
+      background: var(--green);
+      box-shadow: 0 0 12px var(--green);
+      transition: height 0.12s ease, background 0.12s, box-shadow 0.12s;
+      height: 12px;
+    }
+
+    .pke-arm.hot {
+      background: var(--red);
+      box-shadow: 0 0 20px var(--red);
+    }
+
+    .pke-meter-body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pke-ghost-icon {
+      font-size: 32px;
+      line-height: 1;
+      filter: drop-shadow(0 0 8px var(--green));
+      transition: filter 0.15s;
+    }
+
+    .pke-ghost-icon.hot { filter: drop-shadow(0 0 16px var(--red)); }
+
+    .pke-bars {
+      display: flex;
+      gap: 4px;
+      align-items: flex-end;
+    }
+
+    .pke-bar {
+      width: 10px;
+      border-radius: 2px;
+      background: #1a4a2a;
+      transition: background 0.12s, height 0.12s;
+    }
+
+    .pke-bar.lit { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .pke-bar.lit.hot { background: var(--red); box-shadow: 0 0 10px var(--red); }
+
+    #pke-direction-display {
+      text-align: center;
+      margin: 10px 0 6px;
+    }
+
+    #pke-turn-arrow {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--amber);
+      text-shadow: 0 0 14px var(--amber);
+      letter-spacing: 2px;
+      min-height: 30px;
+      display: block;
+    }
+
+    #pke-bearing-info {
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: #3a7a5a;
+      margin-top: 4px;
+    }
+
+    .pke-btn-row {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      margin-top: 12px;
+    }
+
+    .pke-btn-row button {
+      flex: 1;
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: 1px;
+      padding: 12px 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 2px solid;
+      background: transparent;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+
+    #pke-start-btn  { color: var(--green);  border-color: var(--green);  box-shadow: 0 0 10px rgba(0,255,136,0.3); }
+    #pke-scan-btn   { color: var(--amber);  border-color: var(--amber);  box-shadow: 0 0 10px rgba(255,170,0,0.3);  }
+    #pke-bell-btn   { color: var(--amber);  border-color: var(--amber);  box-shadow: 0 0 10px rgba(255,170,0,0.3);  }
+
+    #pke-compass-needed {
+      font-size: 11px;
+      color: #3a6a4a;
+      text-align: center;
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    /* ── Responsive ───────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      /* Hide everything except the PKE panel */
+      header     { display: none; }
+      main       { display: none; }
+
+      /* PKE panel becomes a full-screen fixed overlay */
+      #pke-panel {
+        display: flex !important;
+        flex-direction: column;
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100dvh;
+        border-radius: 0;
+        border: none;
+        padding: 20px 16px 24px;
+        overflow: hidden;
+        z-index: 100;
+        justify-content: space-between;
+      }
+
+      /* Bigger scanner canvas */
+      #pke-scanner {
+        height: 90px;
+        max-width: 100%;
+      }
+
+      /* Bigger arms */
+      .pke-arm {
+        width: 14px;
+      }
+
+      /* Larger ghost icon */
+      .pke-ghost-icon {
+        font-size: 52px;
+      }
+
+      /* Bigger direction text */
+      #pke-turn-arrow {
+        font-size: 28px;
+      }
+
+      /* Stretch buttons to fill width */
+      .pke-btn-row button {
+        padding: 16px 6px;
+        font-size: 12px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #pke-turn-arrow { font-size: 22px; }
+    }
+
+    /* ── Mobile landscape: compact side-by-side scanner ─────── */
+    @media (max-width: 900px) and (orientation: landscape) and (max-height: 500px) {
+      header { display: none; }
+      main   { display: none; }
+
+      #pke-panel {
+        display: grid !important;
+        grid-template-columns: 1fr auto;
+        grid-template-rows: auto 1fr auto;
+        column-gap: 12px;
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100dvh;
+        border-radius: 0;
+        border: none;
+        padding: 10px 14px;
+        overflow: hidden;
+        z-index: 100;
+        align-items: center;
+      }
+
+      /* Title row spans full width */
+      #pke-panel > div:first-child {
+        grid-column: 1 / -1;
+        margin-bottom: 4px;
+      }
+
+      /* Scanner spans left column, both middle rows */
+      #pke-scanner {
+        grid-column: 1;
+        grid-row: 2 / 3;
+        height: calc(100dvh - 100px);
+        max-width: 100%;
+        width: 100%;
+      }
+
+      /* Arms+meter center column, middle row */
+      .pke-arms-wrap {
+        grid-column: 2;
+        grid-row: 2 / 3;
+        flex-direction: column;
+        gap: 8px;
+        margin: 0;
+        height: calc(100dvh - 100px);
+        justify-content: center;
+      }
+
+      .pke-arm {
+        width: 16px;
+        min-height: 8px;
+      }
+
+      #pke-arm-l, #pke-arm-r {
+        /* rotated: arms go horizontal (wide) instead of tall */
+      }
+
+      .pke-ghost-icon { font-size: 36px; }
+
+      /* Direction text: left col, bottom row */
+      #pke-direction-display {
+        grid-column: 1;
+        grid-row: 3;
+        margin: 0;
+        text-align: left;
+      }
+
+      #pke-turn-arrow { font-size: 16px; }
+      #pke-bearing-info { font-size: 9px; }
+
+      /* Buttons: right col, bottom row */
+      .pke-btn-row {
+        grid-column: 2;
+        grid-row: 3;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 0;
+        width: 90px;
+      }
+
+      .pke-btn-row button {
+        padding: 8px 4px;
+        font-size: 9px;
+        letter-spacing: 0;
+      }
+
+      /* Compass hint hidden in landscape to save space */
+      #pke-compass-needed { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Header ──────────────────────────────────────────────── -->
+<header>
+  <div class="logo">👻 GHOST<span>BUSTERS</span> HQ</div>
+  <div class="status-bar">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">ALL CLEAR</span>
+    <span id="clock">00:00:00</span>
+    <span id="ghost-count-badge">0 GHOSTS</span>
+    <label class="mute-toggle" title="Toggle sound (M)">
+      <input type="checkbox" id="sound-toggle" checked />
+      <span class="mute-track">
+        <span class="mute-thumb"></span>
+      </span>
+      <span class="mute-label" id="mute-label">🔊</span>
+    </label>
+  </div>
+</header>
+
+<!-- ─── Main ─────────────────────────────────────────────────── -->
+<main>
+
+  <!-- Radar panel -->
+  <div class="panel radar-panel">
+    <div class="panel-title">▶ PKE METER · SPECTRAL RADAR</div>
+    <div id="radar-wrap">
+      <canvas id="radarCanvas"></canvas>
+    </div>
+
+    <button id="scan-btn" onclick="detectGhost()">⚡ SCAN FOR GHOSTS</button>
+
+    <button id="bell-btn" onclick="ringFirehouseBell()">🔔 WE'VE GOT ONE!!</button>
+
+    <div id="alert-banner">
+      <span class="alert-room" id="alert-room-name">—</span>
+      <span class="alert-sub">⚠ SPECTRAL ENTITY LOCATED · DEPLOY HUNTER IMMEDIATELY</span>
+    </div>
+  </div>
+
+  <!-- PKE Meter panel lives outside <main> so position:fixed works when main is hidden -->
+
+  <!-- Right column -->
+  <div class="right-col">
+
+    <!-- Stats -->
+    <div class="panel">
+      <div class="panel-title">▶ MISSION STATS</div>
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-value" id="stat-total">0</div>
+          <div class="stat-label">Ghosts Found</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="stat-rooms">0</div>
+          <div class="stat-label">Rooms Haunted</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="stat-busted">0</div>
+          <div class="stat-label">Busted!</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ghost activity log -->
+    <div class="panel" style="flex:1">
+      <div class="panel-title">▶ DETECTION LOG</div>
+      <ul id="ghost-log">
+        <li class="log-empty" id="log-empty">[ AWAITING SPECTRAL ACTIVITY ]</li>
+      </ul>
+    </div>
+
+    <!-- Room status grid -->
+    <div class="panel">
+      <div class="panel-title">▶ ROOM STATUS</div>
+      <div class="rooms-grid" id="rooms-grid"></div>
+      <button id="clear-btn" onclick="clearAll()" style="margin-top:12px">⟳ CLEAR ALL · NEW MISSION</button>
+    </div>
+
+  </div>
+
+  <!-- Bottom ticker -->
+  <div class="bottom-row">
+    <div class="panel" style="padding: 10px 16px;">
+      <div class="ticker-wrap">
+        <span id="ticker-text">
+          👻 GHOSTBUSTERS HQ ONLINE · PKE METER ACTIVE · PROTON PACK CHARGED ·
+          REMEMBER: NEVER CROSS THE STREAMS · ECTO-1 STANDING BY ·
+          WHO YA GONNA CALL? GHOSTBUSTERS! ·
+          WARNING: CLASS 5 ENTITIES REPORTED IN SECTOR 4 ·
+          SLIMER LAST SEEN NEAR KITCHEN · ZUUL SIGHTING UNCONFIRMED ·
+          ALL AGENTS REMAIN ON HIGH ALERT ·
+        </span>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- PKE Meter panel — direct body child so position:fixed isn't blocked by main{display:none} -->
+<div id="pke-panel" class="panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+    <div class="logo" style="font-size:clamp(16px,4vw,22px)">👻 PKE METER</div>
+    <label class="mute-toggle" title="Toggle sound (M)" style="margin-left:auto">
+      <input type="checkbox" id="pke-sound-toggle" checked onchange="soundMuted=!this.checked;document.getElementById('sound-toggle').checked=this.checked;document.getElementById('mute-label').textContent=soundMuted?'🔇':'🔊';if(soundMuted)stopPKEBuzz();else if(pkeActive)startPKEBuzz();" />
+      <span class="mute-track"><span class="mute-thumb"></span></span>
+      <span class="mute-label" id="pke-mute-label">🔊</span>
+    </label>
+  </div>
+
+  <canvas id="pke-scanner"></canvas>
+
+  <div class="pke-arms-wrap" style="flex:1;align-items:center">
+    <div class="pke-arm" id="pke-arm-l"></div>
+    <div class="pke-meter-body">
+      <div class="pke-ghost-icon" id="pke-ghost-icon">👻</div>
+      <div class="pke-bars" id="pke-bars">
+        <div class="pke-bar" style="height:10px" data-lvl="1"></div>
+        <div class="pke-bar" style="height:16px" data-lvl="2"></div>
+        <div class="pke-bar" style="height:22px" data-lvl="3"></div>
+        <div class="pke-bar" style="height:28px" data-lvl="4"></div>
+        <div class="pke-bar" style="height:34px" data-lvl="5"></div>
+        <div class="pke-bar" style="height:28px" data-lvl="4"></div>
+        <div class="pke-bar" style="height:22px" data-lvl="3"></div>
+        <div class="pke-bar" style="height:16px" data-lvl="2"></div>
+        <div class="pke-bar" style="height:10px" data-lvl="1"></div>
+      </div>
+    </div>
+    <div class="pke-arm" id="pke-arm-r"></div>
+  </div>
+
+  <div id="pke-direction-display">
+    <span id="pke-turn-arrow">TAP ACTIVATE</span>
+    <div id="pke-bearing-info">GHOST: ---° &nbsp;·&nbsp; HEADING: ---°</div>
+  </div>
+
+  <div class="pke-btn-row">
+    <button id="pke-start-btn" onclick="startPKE()">⚡ ACTIVATE</button>
+    <button id="pke-scan-btn"  onclick="pkeDetectGhost()">📡 NEW GHOST</button>
+    <button id="pke-bell-btn"  onclick="ringFirehouseBell()">🔔 GOT ONE!</button>
+  </div>
+  <div id="pke-compass-needed">Compass · point phone North to calibrate</div>
+</div>
+
+<script>
+// ─── Rooms ────────────────────────────────────────────────────
+const ROOMS = [
+  { name: 'Kitchen',      icon: '🍳' },
+  { name: 'Utility',      icon: '🧺' },
+  { name: 'Dining Room',  icon: '🪑' },
+  { name: 'Lounge',       icon: '🛋️' },
+  { name: 'Stairs',       icon: '🪜' },
+  { name: 'Hallway',      icon: '🚪' },
+  { name: 'Bathroom',     icon: '🚿' },
+  { name: 'Landing',      icon: '🔲' },
+  { name: 'Big Bedroom',  icon: '🛏️' },
+  { name: 'Your Bedroom', icon: '⭐' },
+];
+
+// ─── Audio Engine (Web Audio API — no files needed) ─────────
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+let soundMuted = false;
+
+function syncMuteUI() {
+  const label = soundMuted ? '🔇' : '🔊';
+  document.getElementById('sound-toggle').checked   = !soundMuted;
+  document.getElementById('mute-label').textContent  = label;
+  const pkeTog = document.getElementById('pke-sound-toggle');
+  const pkeLbl = document.getElementById('pke-mute-label');
+  if (pkeTog) pkeTog.checked   = !soundMuted;
+  if (pkeLbl) pkeLbl.textContent = label;
+  if (soundMuted) stopPKEBuzz();
+  else if (pkeActive) startPKEBuzz();
+}
+
+function toggleMute() {
+  soundMuted = !soundMuted;
+  syncMuteUI();
+}
+
+document.getElementById('sound-toggle').addEventListener('change', function() {
+  soundMuted = !this.checked;
+  syncMuteUI();
+});
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new AudioContext();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+// Scanning beeps — rapid rising pings during the sweep
+function playScanSound() {
+  if (soundMuted) return;
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  const beepCount = 8;
+  for (let i = 0; i < beepCount; i++) {
+    const t = now + i * 0.32;
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600 + i * 80, t);
+    osc.frequency.exponentialRampToValueAtTime(900 + i * 90, t + 0.15);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.22, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+    osc.start(t);
+    osc.stop(t + 0.25);
+  }
+}
+
+// Ghost detected — urgent multi-tone alarm
+function playAlertSound() {
+  if (soundMuted) return;
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  // Siren tones: alternating high/low repeated 4 times
+  const freqs = [1200, 800, 1400, 700, 1300, 750, 1100, 680];
+  freqs.forEach((freq, i) => {
+    const t = now + i * 0.18;
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.18, t + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.17);
+    osc.start(t);
+    osc.stop(t + 0.2);
+  });
+  // Underlying rumble
+  const rumble = ctx.createOscillator();
+  const rumbleGain = ctx.createGain();
+  rumble.connect(rumbleGain);
+  rumbleGain.connect(ctx.destination);
+  rumble.type = 'square';
+  rumble.frequency.setValueAtTime(60, now);
+  rumble.frequency.linearRampToValueAtTime(40, now + 1.5);
+  rumbleGain.gain.setValueAtTime(0.12, now);
+  rumbleGain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+  rumble.start(now);
+  rumble.stop(now + 1.6);
+}
+
+// Firehouse bell — clanging alarm bell sound
+function playFirehouseBell() {
+  if (soundMuted) return;
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+
+  // Simulate a clanging cast-iron bell with harmonics
+  function clang(startTime) {
+    const fundamental = 900;
+    const harmonics = [
+      { freq: fundamental,       gain: 0.35 },
+      { freq: fundamental * 2.76, gain: 0.20 },
+      { freq: fundamental * 5.40, gain: 0.12 },
+      { freq: fundamental * 8.93, gain: 0.07 },
+    ];
+    harmonics.forEach(h => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(h.freq, startTime);
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(h.gain, startTime + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.9);
+      osc.start(startTime);
+      osc.stop(startTime + 1.0);
+    });
+    // Metallic click transient
+    const noise = ctx.createOscillator();
+    const noiseGain = ctx.createGain();
+    noise.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+    noise.type = 'square';
+    noise.frequency.setValueAtTime(2400, startTime);
+    noiseGain.gain.setValueAtTime(0.15, startTime);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.04);
+    noise.start(startTime);
+    noise.stop(startTime + 0.05);
+  }
+
+  // Ring the bell 6 times rapidly
+  const interval = 0.38;
+  for (let i = 0; i < 6; i++) {
+    clang(now + i * interval);
+  }
+}
+
+function ringFirehouseBell() {
+  const btn = document.getElementById('bell-btn');
+  btn.classList.add('ringing');
+  playFirehouseBell();
+
+  // Spawn lots of floaters
+  for (let i = 0; i < 8; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'floater';
+      el.textContent = ['🔔','👻','⚡','🚨','💥'][Math.floor(Math.random() * 5)];
+      el.style.left = (5 + Math.random() * 90) + 'vw';
+      el.style.top  = (20 + Math.random() * 60) + 'vh';
+      el.style.fontSize = (24 + Math.random() * 20) + 'px';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }, i * 120);
+  }
+
+  setTimeout(() => btn.classList.remove('ringing'), 6 * 380 + 200);
+}
+
+// Ghost busted — triumphant ascending fanfare
+function playBustSound() {
+  if (soundMuted) return;
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  const notes = [523, 659, 784, 1047]; // C5 E5 G5 C6
+  notes.forEach((freq, i) => {
+    const t = now + i * 0.13;
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, t);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.28, t + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    osc.start(t);
+    osc.stop(t + 0.4);
+  });
+}
+
+// ─── State ────────────────────────────────────────────────────
+let ghosts       = [];   // { room, x, y, ts, busted }
+let totalScans   = 0;
+let bustedCount  = 0;
+let scanning     = false;
+
+// ─── Clock ────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toTimeString().slice(0, 8);
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── Room grid init ───────────────────────────────────────────
+function buildRoomGrid() {
+  const grid = document.getElementById('rooms-grid');
+  grid.innerHTML = '';
+  ROOMS.forEach(r => {
+    const count = ghosts.filter(g => g.room === r.name).length;
+    const haunted = count > 0;
+    const tile = document.createElement('div');
+    tile.className = 'room-tile' + (haunted ? ' haunted' : '');
+    tile.id = 'tile-' + r.name.replace(/\s+/g, '-');
+    tile.innerHTML = `
+      <span>${r.icon} ${r.name}</span>
+      <span class="room-count">${haunted ? count : '·'}</span>`;
+    grid.appendChild(tile);
+  });
+}
+
+buildRoomGrid();
+
+// ─── Radar canvas ─────────────────────────────────────────────
+const canvas = document.getElementById('radarCanvas');
+const ctx    = canvas.getContext('2d');
+let   sweep  = 0;
+
+function resizeCanvas() {
+  const w = canvas.parentElement.clientWidth;
+  canvas.width  = w;
+  canvas.height = w;
+}
+resizeCanvas();
+window.addEventListener('resize', () => { resizeCanvas(); });
+
+function drawRadar() {
+  const W = canvas.width;
+  const CX = W / 2, CY = W / 2, R = W / 2 - 4;
+
+  ctx.clearRect(0, 0, W, W);
+
+  // Background circle
+  ctx.beginPath();
+  ctx.arc(CX, CY, R, 0, Math.PI * 2);
+  const bg = ctx.createRadialGradient(CX, CY, 0, CX, CY, R);
+  bg.addColorStop(0,   'rgba(0,30,15,0.95)');
+  bg.addColorStop(0.7, 'rgba(0,20,10,0.98)');
+  bg.addColorStop(1,   'rgba(0,10,5,1)');
+  ctx.fillStyle = bg;
+  ctx.fill();
+
+  // Concentric rings
+  [0.25, 0.5, 0.75, 1].forEach(f => {
+    ctx.beginPath();
+    ctx.arc(CX, CY, R * f, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0,180,80,0.25)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  // Cross-hairs
+  ctx.strokeStyle = 'rgba(0,180,80,0.2)';
+  ctx.lineWidth = 1;
+  [0, 1, 2, 3].forEach(i => {
+    const a = (i * Math.PI) / 2;
+    ctx.beginPath();
+    ctx.moveTo(CX, CY);
+    ctx.lineTo(CX + Math.cos(a) * R, CY + Math.sin(a) * R);
+    ctx.stroke();
+  });
+
+  // Sweep trailing glow
+  const TRAIL = Math.PI / 3;
+  for (let t = 0; t < 30; t++) {
+    const a = sweep - (TRAIL * t / 30);
+    const alpha = (1 - t / 30) * 0.18;
+    ctx.beginPath();
+    ctx.moveTo(CX, CY);
+    ctx.arc(CX, CY, R, a, a + 0.06);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(0,255,136,${alpha})`;
+    ctx.fill();
+  }
+
+  // Sweep line
+  ctx.beginPath();
+  ctx.moveTo(CX, CY);
+  ctx.lineTo(CX + Math.cos(sweep) * R, CY + Math.sin(sweep) * R);
+  ctx.strokeStyle = 'rgba(0,255,200,0.9)';
+  ctx.lineWidth = 2;
+  ctx.shadowColor = '#00ff88';
+  ctx.shadowBlur  = 8;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Ghost blips
+  ghosts.forEach(g => {
+    const age   = (Date.now() - g.ts) / 1000;
+    const alpha = g.busted ? 0.25 : Math.max(0.3, 1 - age / 60);
+    const blipR = g.busted ? 4 : 7;
+
+    ctx.beginPath();
+    ctx.arc(g.x, g.y, blipR, 0, Math.PI * 2);
+    ctx.fillStyle = g.busted
+      ? `rgba(100,100,100,${alpha})`
+      : `rgba(255,51,85,${alpha})`;
+    ctx.fill();
+
+    if (!g.busted) {
+      ctx.beginPath();
+      ctx.arc(g.x, g.y, blipR + 5, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(255,51,85,${alpha * 0.5})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Ghost label
+      ctx.font = `bold ${Math.max(10, W * 0.028)}px Share Tech Mono, monospace`;
+      ctx.fillStyle = `rgba(255,180,180,${alpha})`;
+      ctx.fillText('👻', g.x + 6, g.y - 8);
+    }
+  });
+
+  // Outer border glow
+  ctx.beginPath();
+  ctx.arc(CX, CY, R, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(0,200,80,0.5)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+// ─── Continuous radar loop ────────────────────────────────────
+const SWEEP_SPEED = 0.7; // rotations per second
+let radarStartTime  = null;
+let lastPingRot     = -1;
+
+function playSweepPing() {
+  if (soundMuted) return;
+  const ctx2 = getAudioCtx();
+  const now = ctx2.currentTime;
+  const osc  = ctx2.createOscillator();
+  const gain = ctx2.createGain();
+  osc.connect(gain);
+  gain.connect(ctx2.destination);
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(1400, now);
+  osc.frequency.exponentialRampToValueAtTime(900, now + 0.18);
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(0.12, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+  osc.start(now);
+  osc.stop(now + 0.25);
+}
+
+function radarLoop(timestamp) {
+  if (!radarStartTime) radarStartTime = timestamp;
+  const elapsed  = (timestamp - radarStartTime) / 1000;
+  const rotations = elapsed * SWEEP_SPEED;
+  sweep = (rotations % 1) * Math.PI * 2;
+
+  const completedRots = Math.floor(rotations);
+  if (completedRots > lastPingRot) {
+    lastPingRot = completedRots;
+    if (audioCtx && !soundMuted) playSweepPing();
+  }
+
+  drawRadar();
+  requestAnimationFrame(radarLoop);
+}
+
+requestAnimationFrame(radarLoop);
+
+// ─── Ghost detection ──────────────────────────────────────────
+function detectGhost() {
+  if (scanning) return;
+  scanning = true;
+
+  const btn = document.getElementById('scan-btn');
+  btn.textContent = '📡 SCANNING...';
+  btn.classList.add('scanning');
+
+  totalScans++;
+  playScanSound();
+
+  setTimeout(() => {
+    // Pick a random room
+    const room = ROOMS[Math.floor(Math.random() * ROOMS.length)];
+
+    // Random position within radar circle (biased to outer 80%)
+    const W  = canvas.width;
+    const CX = W / 2, CY = W / 2, R = W / 2 - 20;
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = (0.25 + Math.random() * 0.75) * R;
+    const x = CX + Math.cos(angle) * dist;
+    const y = CY + Math.sin(angle) * dist;
+
+    const ghost = { room: room.name, x, y, ts: Date.now(), busted: false };
+    ghosts.push(ghost);
+
+    // Update UI
+    playAlertSound();
+    showAlert(room);
+    addLogEntry(room, ghost);
+    updateStats();
+    buildRoomGrid();
+    spawnFloaters();
+    updateBadge();
+
+    btn.textContent = '⚡ SCAN FOR GHOSTS';
+    btn.classList.remove('scanning');
+    scanning = false;
+  }, 2800);
+}
+
+// ─── Alert banner ─────────────────────────────────────────────
+let alertTimer;
+function showAlert(room) {
+  const banner = document.getElementById('alert-banner');
+  const roomEl = document.getElementById('alert-room-name');
+
+  roomEl.textContent = `⚠ GHOST DETECTED: ${room.icon} ${room.name.toUpperCase()}`;
+  banner.style.display = 'block';
+
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  dot.classList.add('alert');
+  txt.textContent = 'GHOST DETECTED';
+
+  clearTimeout(alertTimer);
+  alertTimer = setTimeout(() => {
+    banner.style.display = 'none';
+    if (!ghosts.some(g => !g.busted)) {
+      dot.classList.remove('alert');
+      txt.textContent = 'ALL CLEAR';
+    }
+  }, 6000);
+}
+
+// ─── Log ──────────────────────────────────────────────────────
+function addLogEntry(room, ghost) {
+  const log    = document.getElementById('ghost-log');
+  const empty  = document.getElementById('log-empty');
+  if (empty) empty.remove();
+
+  const now = new Date();
+  const ts  = now.toTimeString().slice(0, 8);
+
+  const li = document.createElement('li');
+  li.dataset.ghostIndex = ghosts.length - 1;
+  li.innerHTML = `
+    <span class="log-icon">👻</span>
+    <div>
+      <div class="log-room">${room.icon} ${room.name}</div>
+      <div class="log-time">${ts} · TAP TO BUST</div>
+    </div>
+    <button style="margin-left:auto;background:transparent;border:1px solid var(--red);
+      color:var(--red);font-family:inherit;font-size:10px;padding:4px 8px;
+      border-radius:4px;cursor:pointer;letter-spacing:1px;white-space:nowrap;"
+      onclick="bustGhost(${ghosts.length - 1}, this)">BUST!</button>`;
+  log.prepend(li);
+  log.scrollTop = 0;
+}
+
+// ─── Bust ghost ───────────────────────────────────────────────
+function bustGhost(idx, btn) {
+  if (ghosts[idx] && !ghosts[idx].busted) {
+    ghosts[idx].busted = true;
+    bustedCount++;
+    btn.textContent = '✓ BUSTED';
+    btn.disabled = true;
+    btn.style.color = '#3a6a4a';
+    btn.style.borderColor = '#1a4a2a';
+    const nameEl = btn.parentElement.querySelector('.log-room');
+    if (nameEl) nameEl.style.textDecoration = 'line-through';
+    playBustSound();
+    updateStats();
+    buildRoomGrid();
+    drawRadar();
+
+    spawnBustEffect(btn);
+  }
+}
+
+// ─── Stats ────────────────────────────────────────────────────
+function updateStats() {
+  const active  = ghosts.filter(g => !g.busted);
+  const haunted = new Set(active.map(g => g.room)).size;
+
+  document.getElementById('stat-total').textContent  = ghosts.length;
+  document.getElementById('stat-rooms').textContent  = haunted;
+  document.getElementById('stat-busted').textContent = bustedCount;
+
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  if (active.length === 0 && ghosts.length > 0) {
+    dot.classList.remove('alert');
+    txt.textContent = 'ALL CLEAR';
+  } else if (active.length > 0) {
+    dot.classList.add('alert');
+    txt.textContent = `${active.length} ACTIVE`;
+  }
+}
+
+// ─── Badge ────────────────────────────────────────────────────
+function updateBadge() {
+  const active = ghosts.filter(g => !g.busted).length;
+  const badge  = document.getElementById('ghost-count-badge');
+  badge.style.display = active > 0 ? 'inline-block' : 'none';
+  badge.textContent   = `${active} GHOST${active !== 1 ? 'S' : ''}`;
+}
+
+// ─── Clear all ────────────────────────────────────────────────
+function clearAll() {
+  ghosts      = [];
+  bustedCount = 0;
+  totalScans  = 0;
+
+  document.getElementById('ghost-log').innerHTML =
+    '<li class="log-empty" id="log-empty">[ AWAITING SPECTRAL ACTIVITY ]</li>';
+  document.getElementById('alert-banner').style.display = 'none';
+  document.getElementById('status-dot').classList.remove('alert');
+  document.getElementById('status-text').textContent = 'ALL CLEAR';
+
+  updateStats();
+  buildRoomGrid();
+  updateBadge();
+  drawRadar();
+}
+
+// ─── Fun effects ──────────────────────────────────────────────
+function spawnFloaters() {
+  const count = 3 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div');
+    el.className = 'floater';
+    el.textContent = ['👻','💀','🌀','⚡','✨'][Math.floor(Math.random() * 5)];
+    el.style.left = (10 + Math.random() * 80) + 'vw';
+    el.style.top  = (30 + Math.random() * 50) + 'vh';
+    el.style.animationDelay = (Math.random() * 0.5) + 's';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+  }
+}
+
+function spawnBustEffect(btn) {
+  const rect = btn.getBoundingClientRect();
+  for (let i = 0; i < 5; i++) {
+    const el = document.createElement('div');
+    el.className = 'floater';
+    el.textContent = ['💥','⚡','✨','🌀','💫'][i];
+    el.style.left  = rect.left + 'px';
+    el.style.top   = rect.top  + 'px';
+    el.style.fontSize = '20px';
+    el.style.animationDelay = (i * 0.1) + 's';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+  }
+}
+
+// ─── Keyboard shortcuts ───────────────────────────────────────
+document.addEventListener('keydown', e => {
+  // Ignore if typing in an input field
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+  if (e.code === 'KeyS' && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    detectGhost();
+  }
+
+  if (e.code === 'Space') {
+    e.preventDefault();
+    ringFirehouseBell();
+  }
+
+  if (e.code === 'KeyB') {
+    e.preventDefault();
+    // Bust the most recent unbusted ghost
+    for (let i = ghosts.length - 1; i >= 0; i--) {
+      if (!ghosts[i].busted) {
+        const logItem = document.querySelector(`[data-ghost-index="${i}"]`);
+        const btn = logItem ? logItem.querySelector('button') : null;
+        bustGhost(i, btn || document.createElement('button'));
+        break;
+      }
+    }
+  }
+
+  if (e.code === 'KeyX') {
+    e.preventDefault();
+    clearAll();
+  }
+
+  if (e.code === 'KeyM') {
+    e.preventDefault();
+    toggleMute();
+  }
+});
+
+// Initial draw
+drawRadar();
+
+// ─── PKE Meter (mobile compass) ──────────────────────────────
+let ghostBearing    = null;   // absolute compass bearing of ghost
+let pkeHeading      = null;   // current device compass heading
+let pkeActive       = false;  // compass listener running
+let pkeOsc1         = null;   // buzz oscillators
+let pkeOsc2         = null;
+let pkeLFO          = null;
+let pkeLFOGain      = null;
+let pkeGainNode     = null;
+let pkeScanX        = 0;      // scanner sweep x position
+let pkeScanRAF      = null;
+let pkeBlips        = [];     // [{x, alpha}]  bright hits on scanner
+
+// ── Compass bearing math ──
+function bearingDiff(from, to) {
+  // Returns -180..+180 (negative=left, positive=right)
+  return ((to - from + 540) % 360) - 180;
+}
+
+function proximity(diff) {
+  // 1.0 = dead on, 0 = >=90° away
+  return Math.max(0, 1 - Math.abs(diff) / 90);
+}
+
+// ── PKE Buzz sound ──
+function startPKEBuzz() {
+  if (soundMuted || pkeOsc1) return;
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+
+  pkeGainNode        = ctx.createGain();
+  pkeGainNode.gain.setValueAtTime(0.001, now);
+  pkeGainNode.connect(ctx.destination);
+
+  // Carrier — raw square buzz
+  pkeOsc1            = ctx.createOscillator();
+  pkeOsc1.type       = 'square';
+  pkeOsc1.frequency.setValueAtTime(90, now);
+
+  // Second oscillator slightly detuned
+  pkeOsc2            = ctx.createOscillator();
+  pkeOsc2.type       = 'sawtooth';
+  pkeOsc2.frequency.setValueAtTime(93, now);
+
+  // LFO to create the buzz pulse
+  pkeLFO             = ctx.createOscillator();
+  pkeLFO.type        = 'sine';
+  pkeLFO.frequency.setValueAtTime(4, now);
+
+  pkeLFOGain         = ctx.createGain();
+  pkeLFOGain.gain.setValueAtTime(0.18, now);
+  pkeLFO.connect(pkeLFOGain);
+  pkeLFOGain.connect(pkeGainNode.gain);
+
+  const mix = ctx.createGain();
+  mix.gain.setValueAtTime(0.5, now);
+  pkeOsc1.connect(mix);
+  pkeOsc2.connect(mix);
+  mix.connect(pkeGainNode);
+
+  pkeOsc1.start(now); pkeOsc2.start(now); pkeLFO.start(now);
+}
+
+function updatePKEBuzz(prox) {
+  if (!pkeGainNode || soundMuted) return;
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  // Volume 0.02 (far) → 0.35 (close)
+  pkeGainNode.gain.linearRampToValueAtTime(0.02 + prox * 0.33, now + 0.08);
+  // LFO rate 3Hz (far) → 35Hz (close=frantic)
+  pkeLFO.frequency.linearRampToValueAtTime(3 + prox * 32, now + 0.08);
+  // Carrier pitch rises slightly when hot
+  pkeOsc1.frequency.linearRampToValueAtTime(80 + prox * 60, now + 0.08);
+  pkeOsc2.frequency.linearRampToValueAtTime(83 + prox * 62, now + 0.08);
+}
+
+function stopPKEBuzz() {
+  if (!pkeOsc1) return;
+  try { pkeOsc1.stop(); pkeOsc2.stop(); pkeLFO.stop(); } catch(e) {}
+  pkeOsc1 = pkeOsc2 = pkeLFO = pkeLFOGain = pkeGainNode = null;
+}
+
+// ── Scanner canvas ──
+const pkeCanvas = document.getElementById('pke-scanner');
+const pkeCtx    = pkeCanvas.getContext('2d');
+
+function resizePKECanvas() {
+  pkeCanvas.width  = pkeCanvas.parentElement.clientWidth || 340;
+  pkeCanvas.height = 70;
+}
+resizePKECanvas();
+window.addEventListener('resize', resizePKECanvas);
+
+function drawPKEScanner() {
+  if (!pkeCanvas.offsetParent) { pkeScanRAF = requestAnimationFrame(drawPKEScanner); return; }
+  const W = pkeCanvas.width, H = pkeCanvas.height;
+
+  // Fade trail
+  pkeCtx.fillStyle = 'rgba(1,13,5,0.35)';
+  pkeCtx.fillRect(0, 0, W, H);
+
+  // Noise dots
+  for (let i = 0; i < 4; i++) {
+    const nx = Math.random() * W;
+    const ny = Math.random() * H;
+    pkeCtx.fillStyle = 'rgba(0,180,80,0.12)';
+    pkeCtx.fillRect(nx, ny, 1, 1);
+  }
+
+  const prox = (pkeActive && ghostBearing !== null && pkeHeading !== null)
+    ? proximity(bearingDiff(pkeHeading, ghostBearing))
+    : 0;
+
+  // Ghost blip position on scanner
+  const FOV = 100; // degrees visible
+  let blipX = null;
+  if (pkeActive && ghostBearing !== null && pkeHeading !== null) {
+    const diff = bearingDiff(pkeHeading, ghostBearing);
+    if (Math.abs(diff) <= FOV / 2) {
+      blipX = W / 2 + (diff / (FOV / 2)) * (W / 2);
+    }
+  }
+
+  // Sweep line
+  pkeScanX = (pkeScanX + 1.8) % W;
+  pkeCtx.strokeStyle = `rgba(0,255,136,${0.5 + prox * 0.5})`;
+  pkeCtx.lineWidth = 1.5;
+  pkeCtx.shadowColor = '#00ff88';
+  pkeCtx.shadowBlur = 4;
+  pkeCtx.beginPath();
+  pkeCtx.moveTo(pkeScanX, 0);
+  pkeCtx.lineTo(pkeScanX, H);
+  pkeCtx.stroke();
+  pkeCtx.shadowBlur = 0;
+
+  // When sweep crosses blip position, create a hit
+  if (blipX !== null) {
+    const dist = Math.abs(pkeScanX - blipX);
+    if (dist < 3) {
+      const hitAlpha = 0.6 + prox * 0.4;
+      pkeBlips.push({ x: blipX, alpha: hitAlpha, age: 0 });
+    }
+  }
+
+  // Draw blips (fade out)
+  pkeBlips = pkeBlips.filter(b => b.alpha > 0.01);
+  pkeBlips.forEach(b => {
+    const w = 4 + prox * 14;
+    pkeCtx.beginPath();
+    const col = prox > 0.7 ? `rgba(255,51,85,${b.alpha})` : `rgba(0,255,136,${b.alpha})`;
+    pkeCtx.strokeStyle = col;
+    pkeCtx.shadowColor  = prox > 0.7 ? '#ff3355' : '#00ff88';
+    pkeCtx.shadowBlur   = 8;
+    pkeCtx.lineWidth = 2;
+    pkeCtx.moveTo(b.x, H / 2 - w);
+    pkeCtx.lineTo(b.x, H / 2 + w);
+    pkeCtx.stroke();
+    pkeCtx.shadowBlur = 0;
+    b.alpha *= 0.92;
+    b.age++;
+  });
+
+  // Arrow indicators when ghost is off-screen
+  if (pkeActive && ghostBearing !== null && pkeHeading !== null && blipX === null) {
+    const diff = bearingDiff(pkeHeading, ghostBearing);
+    const arrowX = diff < 0 ? 12 : W - 12;
+    pkeCtx.font = 'bold 16px monospace';
+    pkeCtx.fillStyle = `rgba(255,170,0,0.9)`;
+    pkeCtx.textAlign = diff < 0 ? 'left' : 'right';
+    pkeCtx.fillText(diff < 0 ? '◄◄◄' : '►►►', arrowX, H / 2 + 6);
+  }
+
+  // Centre line
+  pkeCtx.strokeStyle = 'rgba(0,180,80,0.15)';
+  pkeCtx.lineWidth = 1;
+  pkeCtx.beginPath();
+  pkeCtx.moveTo(W / 2, 0);
+  pkeCtx.lineTo(W / 2, H);
+  pkeCtx.stroke();
+
+  pkeScanRAF = requestAnimationFrame(drawPKEScanner);
+}
+
+// Only run scanner on mobile
+if (window.matchMedia('(max-width: 768px)').matches) {
+  drawPKEScanner();
+}
+
+// ── Update PKE visuals from proximity ──
+function updatePKEMeter(prox, diff) {
+  const bars   = document.querySelectorAll('.pke-bar');
+  const armL   = document.getElementById('pke-arm-l');
+  const armR   = document.getElementById('pke-arm-r');
+  const icon   = document.getElementById('pke-ghost-icon');
+  const arrow  = document.getElementById('pke-turn-arrow');
+  const info   = document.getElementById('pke-bearing-info');
+  const isHot  = prox > 0.75;
+
+  // Arms — height 8px (cold) to 120px (hot)
+  const armH = Math.round(8 + prox * 112);
+  armL.style.height = armH + 'px';
+  armR.style.height = armH + 'px';
+  armL.classList.toggle('hot', isHot);
+  armR.classList.toggle('hot', isHot);
+  icon.classList.toggle('hot', isHot);
+
+  // Signal bars — light up proportional to prox (5 threshold levels)
+  bars.forEach(bar => {
+    const lvl = parseInt(bar.dataset.lvl);
+    const lit  = lvl <= Math.round(prox * 5);
+    bar.classList.toggle('lit', lit);
+    bar.classList.toggle('hot', lit && isHot);
+  });
+
+  // Direction arrow
+  if (prox > 0.85) {
+    arrow.textContent = '🎯 LOCKED ON!';
+    arrow.style.color = 'var(--red)';
+  } else if (diff < -5) {
+    arrow.textContent = '◄ TURN LEFT';
+    arrow.style.color = 'var(--amber)';
+  } else if (diff > 5) {
+    arrow.textContent = 'TURN RIGHT ►';
+    arrow.style.color = 'var(--amber)';
+  } else {
+    arrow.textContent = '▲ STRAIGHT AHEAD';
+    arrow.style.color = 'var(--green)';
+  }
+
+  // Bearing readout
+  const hdgStr = pkeHeading !== null ? Math.round(pkeHeading) + '°' : '---°';
+  const ghsStr = ghostBearing !== null ? Math.round(ghostBearing) + '°' : '---°';
+  info.innerHTML = 'GHOST: ' + ghsStr + ' &nbsp;·&nbsp; HEADING: ' + hdgStr;
+
+  if (!soundMuted) updatePKEBuzz(prox);
+}
+
+// ── Orientation event handler ──
+function handleOrientation(e) {
+  let heading = null;
+  if (e.webkitCompassHeading != null) {
+    heading = e.webkitCompassHeading;            // iOS: true compass
+  } else if (e.absolute && e.alpha != null) {
+    heading = (360 - e.alpha) % 360;             // Android absolute
+  } else if (e.alpha != null) {
+    heading = (360 - e.alpha) % 360;             // fallback
+  }
+  if (heading === null) return;
+  pkeHeading = heading;
+
+  if (ghostBearing === null) return;
+  const diff = bearingDiff(pkeHeading, ghostBearing);
+  const prox = proximity(diff);
+  updatePKEMeter(prox, diff);
+}
+
+function initCompass() {
+  window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+  window.addEventListener('deviceorientation',         handleOrientation, true);
+  pkeActive = true;
+  document.getElementById('pke-start-btn').textContent = '✓ ACTIVE';
+  document.getElementById('pke-compass-needed').textContent = 'Compass active · turn to find the ghost';
+  if (!soundMuted) startPKEBuzz();
+  if (ghostBearing === null) ghostBearing = Math.floor(Math.random() * 360);
+}
+
+function startPKE() {
+  // iOS 13+ needs permission on a gesture
+  if (typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission()
+      .then(state => { if (state === 'granted') initCompass(); })
+      .catch(() => initCompass()); // fallback if already granted
+  } else {
+    initCompass();
+  }
+}
+
+function pkeDetectGhost() {
+  ghostBearing = Math.floor(Math.random() * 360);
+  pkeBlips = [];
+  // Also add to the log via detectGhost()
+  detectGhost();
+  document.getElementById('pke-compass-needed').textContent =
+    'New ghost bearing set · turn to find it!';
+}
+</script>
+</body>
+</html>
